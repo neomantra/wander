@@ -94,6 +94,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				} else {
 					m.clearFilter()
 				}
+
+			case key.Matches(msg, keymap.KeyMap.Spec):
+				if len(m.allocationsData.filteredData) > 0 {
+					selectedAlloc := m.allocationsData.filteredData[m.viewport.CursorRow]
+					m.LastSelectedAllocID = selectedAlloc.ID
+					m.LastSelectedTaskName = selectedAlloc.TaskName
+					return m, pages.ToAllocspecPageCmd
+				}
 			}
 
 			m.viewport, cmd = m.viewport.Update(msg)

@@ -12,6 +12,7 @@ const (
 	Jobs
 	Jobspec
 	Allocations
+	Allocspec
 	Logs
 	Logline
 )
@@ -60,6 +61,8 @@ func (p Page) Backward() Page {
 		return Jobs
 	case Allocations:
 		return Jobs
+	case Allocspec:
+		return Allocations
 	case Logs:
 		return Allocations
 	case Logline:
@@ -80,6 +83,10 @@ func ToJobspecPageCmd() tea.Msg {
 
 func ToAllocationsPageCmd() tea.Msg {
 	return ChangePageMsg{NewPage: Allocations}
+}
+
+func ToAllocspecPageCmd() tea.Msg {
+	return ChangePageMsg{NewPage: Allocspec}
 }
 
 func ToLogsPageCmd() tea.Msg {

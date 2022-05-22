@@ -1,4 +1,4 @@
-package jobs
+package allocspec
 
 import (
 	"fmt"
@@ -9,48 +9,43 @@ import (
 	"wander/components/filter"
 	"wander/components/viewport"
 	"wander/dev"
+	"wander/formatter"
 	"wander/keymap"
 	"wander/pages"
+	"wander/style"
 )
 
-type jobsData struct {
-	allData, filteredData []jobResponseEntry
-}
-
-type nomadJobsMsg []jobResponseEntry
-
 type Model struct {
-	initialized       bool
-	url, token        string
-	jobsData          jobsData
-	width, height     int
-	viewport          viewport.Model
-	filter            filter.Model
-	Loading           bool
-	LastSelectedJobID string
+	url, token    string
+	allocspecData allocspecData
+	width, height int
+	viewport      viewport.Model
+	filter        filter.Model
+	allocID       string
+	taskName      string
+	Loading       bool
 }
+
+const filterPrefix = "Allocation Spec"
 
 func New(url, token string, width, height int) Model {
-	jobsFilter := filter.New("Jobs")
+	allocspecFilter := filter.New(filterPrefix)
+	allocspecViewport := viewport.New(width, height-allocspecFilter.ViewHeight())
+	allocspecViewport.SetCursorEnabled(false)
 	model := Model{
 		url:      url,
 		token:    token,
 		width:    width,
 		height:   height,
-		viewport: viewport.New(width, height-jobsFilter.ViewHeight()),
-		filter:   jobsFilter,
+		viewport: allocspecViewport,
+		filter:   allocspecFilter,
 		Loading:  true,
 	}
 	return model
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	dev.Debug(fmt.Sprintf("jobs %T", msg))
-
-	if !m.initialized {
-		m.initialized = true
-		return m, FetchJobs(m.url, m.token)
-	}
+	dev.Debug(fmt.Sprintf("allocspec %T", msg))
 
 	var (
 		cmd  tea.Cmd
@@ -64,9 +59,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case nomadJobsMsg:
-		m.jobsData.allData = msg
-		m.updateJobViewport()
+	case nomadAllocspecMessage:
+		m.allocspecData.allData = msg
+		m.updateAllocspecViewport()
 		m.Loading = false
 
 	case tea.KeyMsg:
@@ -85,22 +80,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, keymap.KeyMap.Reload):
-				return m, pages.ToJobsPageCmd
-
-			case key.Matches(msg, keymap.KeyMap.Forward):
-				if len(m.jobsData.filteredData) > 0 {
-					m.LastSelectedJobID = m.jobsData.filteredData[m.viewport.CursorRow].ID
-					return m, pages.ToAllocationsPageCmd
-				}
-
-			case key.Matches(msg, keymap.KeyMap.Spec):
-				if len(m.jobsData.filteredData) > 0 {
-					m.LastSelectedJobID = m.jobsData.filteredData[m.viewport.CursorRow].ID
-					return m, pages.ToJobspecPageCmd
-				}
+				return m, pages.ToAllocspecPageCmd
 
 			case key.Matches(msg, keymap.KeyMap.Back):
-				m.clearFilter()
+				if len(m.filter.Filter) == 0 {
+					return m, pages.ToAllocationsPageCmd
+				} else {
+					m.clearFilter()
+				}
 			}
 
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -111,7 +98,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		prevFilter := m.filter.Filter
 		m.filter, cmd = m.filter.Update(msg)
 		if m.filter.Filter != prevFilter {
-			m.updateJobViewport()
+			m.updateAllocspecViewport()
 		}
 		cmds = append(cmds, cmd)
 	}
@@ -120,7 +107,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	content := "Loading jobs..."
+	content := fmt.Sprintf("Loading allocation spec for %s...", m.taskName)
 	if !m.Loading {
 		content = m.viewport.View()
 	}
@@ -132,28 +119,33 @@ func (m *Model) SetWindowSize(width, height int) {
 	m.viewport.SetSize(width, height-m.filter.ViewHeight())
 }
 
+func (m *Model) ResetXOffset() {
+	m.viewport.SetXOffset(0)
+}
+
+func (m *Model) SetAllocationData(allocID, taskName string) {
+	m.allocID, m.taskName = allocID, taskName
+	m.filter.SetPrefix(fmt.Sprintf("%s for %s %s", filterPrefix, style.Bold.Render(taskName), formatter.ShortAllocID(allocID)))
+}
+
 func (m *Model) clearFilter() {
 	m.filter.BlurAndClear()
-	m.updateJobViewport()
+	m.updateAllocspecViewport()
 }
 
-func (m *Model) updateFilteredJobData() {
-	var filteredJobData []jobResponseEntry
-	for _, entry := range m.jobsData.allData {
-		if entry.MatchesFilter(m.filter.Filter) {
-			filteredJobData = append(filteredJobData, entry)
+func (m *Model) updateFilteredAllocationData() {
+	var filteredAllocationData []string
+	for _, entry := range m.allocspecData.allData {
+		if strings.Contains(entry, m.filter.Filter) {
+			filteredAllocationData = append(filteredAllocationData, entry)
 		}
 	}
-	m.jobsData.filteredData = filteredJobData
+	m.allocspecData.filteredData = filteredAllocationData
 }
 
-func (m *Model) updateJobViewport() {
+func (m *Model) updateAllocspecViewport() {
 	m.viewport.Highlight = m.filter.Filter
-	m.updateFilteredJobData()
-	table := jobResponsesAsTable(m.jobsData.filteredData)
-	m.viewport.SetHeaderAndContent(
-		strings.Join(table.HeaderRows, "\n"),
-		strings.Join(table.ContentRows, "\n"),
-	)
+	m.updateFilteredAllocationData()
+	m.viewport.SetHeaderAndContent("", strings.Join(m.allocspecData.filteredData, "\n"))
 	m.viewport.SetCursorRow(0)
 }

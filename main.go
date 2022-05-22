@@ -16,6 +16,7 @@ import (
 	"wander/message"
 	"wander/pages"
 	"wander/pages/allocations"
+	"wander/pages/allocspec"
 	"wander/pages/jobs"
 	"wander/pages/jobspec"
 	"wander/pages/logline"
@@ -32,6 +33,7 @@ type model struct {
 	jobsPage         jobs.Model
 	jobspecPage      jobspec.Model
 	allocationsPage  allocations.Model
+	allocspecPage    allocspec.Model
 	logsPage         logs.Model
 	loglinePage      logline.Model
 	selectedJobID    string
@@ -121,6 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.jobsPage = jobs.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.jobspecPage = jobspec.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.allocationsPage = allocations.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
+			m.allocspecPage = allocspec.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.logsPage = logs.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.loglinePage = logline.New("", msg.Width, pageHeight)
 			m.initialized = true
@@ -128,6 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.jobsPage.SetWindowSize(msg.Width, pageHeight)
 			m.jobspecPage.SetWindowSize(msg.Width, pageHeight)
 			m.allocationsPage.SetWindowSize(msg.Width, pageHeight)
+			m.allocspecPage.SetWindowSize(msg.Width, pageHeight)
 			m.logsPage.SetWindowSize(msg.Width, pageHeight)
 			m.loglinePage.SetWindowSize(msg.Width, pageHeight)
 		}
@@ -155,8 +159,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.allocationsPage.Loading = true
 			return m, allocations.FetchAllocations(m.nomadUrl, m.nomadToken, jobID)
 
+		case pages.Allocspec:
+			m.allocspecPage.ResetXOffset()
+			allocID, taskName := m.allocationsPage.LastSelectedAllocID, m.allocationsPage.LastSelectedTaskName
+			m.allocspecPage.SetAllocationData(allocID, taskName)
+			m.allocspecPage.Loading = true
+			return m, allocspec.FetchAllocspec(m.nomadUrl, m.nomadToken, allocID)
+
 		case pages.Logs:
-			m.setPage(pages.Logs)
 			m.logsPage.ResetXOffset()
 			allocID, taskName := m.allocationsPage.LastSelectedAllocID, m.allocationsPage.LastSelectedTaskName
 			m.logsPage.SetAllocationData(allocID, taskName)
@@ -170,7 +180,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 
 		case pages.Logline:
-			m.setPage(pages.Logline)
 			m.loglinePage.SetAllocationData(m.allocationsPage.LastSelectedAllocID, m.allocationsPage.LastSelectedTaskName)
 			m.loglinePage.SetLogline(m.logsPage.LastSelectedLogline)
 		}
@@ -185,6 +194,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case pages.Allocations:
 		m.allocationsPage, cmd = m.allocationsPage.Update(msg)
+		cmds = append(cmds, cmd)
+	case pages.Allocspec:
+		m.allocspecPage, cmd = m.allocspecPage.Update(msg)
 		cmds = append(cmds, cmd)
 	case pages.Logs:
 		m.logsPage, cmd = m.logsPage.Update(msg)
@@ -210,6 +222,8 @@ func (m model) View() string {
 		pageView = m.jobspecPage.View()
 	case pages.Allocations:
 		pageView = m.allocationsPage.View()
+	case pages.Allocspec:
+		pageView = m.allocspecPage.View()
 	case pages.Logs:
 		pageView = m.logsPage.View()
 	case pages.Logline:
@@ -247,6 +261,8 @@ func (m model) currentPageLoading() bool {
 		return m.jobspecPage.Loading
 	case pages.Allocations:
 		return m.allocationsPage.Loading
+	case pages.Allocspec:
+		return m.allocspecPage.Loading
 	case pages.Logs:
 		return m.logsPage.Loading
 	case pages.Logline:
