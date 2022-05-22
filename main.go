@@ -17,6 +17,7 @@ import (
 	"wander/pages"
 	"wander/pages/allocations"
 	"wander/pages/jobs"
+	"wander/pages/jobspec"
 	"wander/pages/logline"
 	"wander/pages/logs"
 	"wander/style"
@@ -29,6 +30,7 @@ type model struct {
 	nomadUrl         string
 	currentPage      pages.Page
 	jobsPage         jobs.Model
+	jobspecPage      jobspec.Model
 	allocationsPage  allocations.Model
 	logsPage         logs.Model
 	loglinePage      logline.Model
@@ -117,12 +119,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if !m.initialized {
 			m.jobsPage = jobs.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
+			m.jobspecPage = jobspec.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.allocationsPage = allocations.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.logsPage = logs.New(m.nomadUrl, m.nomadToken, msg.Width, pageHeight)
 			m.loglinePage = logline.New("", msg.Width, pageHeight)
 			m.initialized = true
 		} else {
 			m.jobsPage.SetWindowSize(msg.Width, pageHeight)
+			m.jobspecPage.SetWindowSize(msg.Width, pageHeight)
 			m.allocationsPage.SetWindowSize(msg.Width, pageHeight)
 			m.logsPage.SetWindowSize(msg.Width, pageHeight)
 			m.loglinePage.SetWindowSize(msg.Width, pageHeight)
@@ -138,6 +142,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case pages.Jobs:
 			m.jobsPage.Loading = true
 			return m, jobs.FetchJobs(m.nomadUrl, m.nomadToken)
+
+		case pages.Jobspec:
+			jobID := m.jobsPage.LastSelectedJobID
+			m.jobspecPage.SetJobID(jobID)
+			m.jobspecPage.Loading = true
+			return m, jobspec.FetchJobspec(m.nomadUrl, m.nomadToken, jobID)
 
 		case pages.Allocations:
 			jobID := m.jobsPage.LastSelectedJobID
@@ -170,6 +180,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pages.Jobs:
 		m.jobsPage, cmd = m.jobsPage.Update(msg)
 		cmds = append(cmds, cmd)
+	case pages.Jobspec:
+		m.jobspecPage, cmd = m.jobspecPage.Update(msg)
+		cmds = append(cmds, cmd)
 	case pages.Allocations:
 		m.allocationsPage, cmd = m.allocationsPage.Update(msg)
 		cmds = append(cmds, cmd)
@@ -193,6 +206,8 @@ func (m model) View() string {
 	switch m.currentPage {
 	case pages.Jobs:
 		pageView = m.jobsPage.View()
+	case pages.Jobspec:
+		pageView = m.jobspecPage.View()
 	case pages.Allocations:
 		pageView = m.allocationsPage.View()
 	case pages.Logs:
@@ -228,6 +243,8 @@ func (m model) currentPageLoading() bool {
 	switch m.currentPage {
 	case pages.Jobs:
 		return m.jobsPage.Loading
+	case pages.Jobspec:
+		return m.jobspecPage.Loading
 	case pages.Allocations:
 		return m.allocationsPage.Loading
 	case pages.Logs:

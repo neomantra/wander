@@ -93,6 +93,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					return m, pages.ToAllocationsPageCmd
 				}
 
+			case key.Matches(msg, keymap.KeyMap.JobSpec):
+				if len(m.jobsData.filteredData) > 0 {
+					m.LastSelectedJobID = m.jobsData.filteredData[m.viewport.CursorRow].ID
+					return m, pages.ToJobspecPageCmd
+				}
+
 			case key.Matches(msg, keymap.KeyMap.Back):
 				m.clearFilter()
 			}

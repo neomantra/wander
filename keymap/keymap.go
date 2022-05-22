@@ -17,6 +17,7 @@ type keyMap struct {
 	Filter  key.Binding
 	StdOut  key.Binding
 	StdErr  key.Binding
+	JobSpec key.Binding
 }
 
 var KeyMap = keyMap{
@@ -48,6 +49,10 @@ var KeyMap = keyMap{
 		key.WithKeys("e"),
 		key.WithHelp("e", "stderr"),
 	),
+	JobSpec: key.NewBinding(
+		key.WithKeys("s"),
+		key.WithHelp("s", "spec"),
+	),
 }
 
 func GetPageKeyHelp(currentPage pages.Page) string {
@@ -70,6 +75,10 @@ func GetPageKeyHelp(currentPage pages.Page) string {
 	if prevPage := currentPage.Backward(); prevPage != currentPage {
 		KeyMap.Back.SetHelp(KeyMap.Back.Help().Key, fmt.Sprintf("view %s", currentPage.Backward().String()))
 		alwaysShown = append(alwaysShown, KeyMap.Back)
+	}
+
+	if currentPage == pages.Jobs {
+		alwaysShown = append(alwaysShown, KeyMap.JobSpec)
 	}
 
 	firstRow := keyHelper.ShortHelpView(alwaysShown)

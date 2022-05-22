@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"wander/dev"
 	"wander/formatter"
 	"wander/message"
 	"wander/nomad"
@@ -89,7 +88,6 @@ func (e allocationRowEntry) MatchesFilter(filter string) bool {
 
 func FetchAllocations(url, token, jobID string) tea.Cmd {
 	return func() tea.Msg {
-		dev.Debug(fmt.Sprintf("jobID %s", jobID))
 		fullPath := fmt.Sprintf("%s%s%s%s", url, "/v1/job/", jobID, "/allocations")
 		body, err := nomad.Get(fullPath, token, nil)
 		if err != nil {

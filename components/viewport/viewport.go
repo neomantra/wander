@@ -243,7 +243,7 @@ func (m Model) View() string {
 		}
 		addLineToViewString(footerString, true)
 	}
-	trimmedViewLines := strings.TrimSpace(viewString)
+	trimmedViewLines := strings.Trim(viewString, "\n")
 	renderedViewLines := style.Viewport.Width(m.width).Height(m.height).Render(trimmedViewLines)
 	return renderedViewLines
 }

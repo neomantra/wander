@@ -1,4 +1,4 @@
-package allocations
+package jobspec
 
 import (
 	"fmt"
@@ -15,35 +15,35 @@ import (
 )
 
 type Model struct {
-	url, token           string
-	allocationsData      allocationsData
-	width, height        int
-	viewport             viewport.Model
-	filter               filter.Model
-	jobID                string
-	Loading              bool
-	LastSelectedAllocID  string
-	LastSelectedTaskName string
+	url, token    string
+	jobspecData   jobspecData
+	width, height int
+	viewport      viewport.Model
+	filter        filter.Model
+	jobID         string
+	Loading       bool
 }
 
-const filterPrefix = "Allocations"
+const filterPrefix = "Job Spec"
 
 func New(url, token string, width, height int) Model {
-	allocationsFilter := filter.New(filterPrefix)
+	jobspecFilter := filter.New(filterPrefix)
+	jobspecViewport := viewport.New(width, height-jobspecFilter.ViewHeight())
+	jobspecViewport.SetCursorEnabled(false)
 	model := Model{
 		url:      url,
 		token:    token,
 		width:    width,
 		height:   height,
-		viewport: viewport.New(width, height-allocationsFilter.ViewHeight()),
-		filter:   allocationsFilter,
+		viewport: jobspecViewport,
+		filter:   jobspecFilter,
 		Loading:  true,
 	}
 	return model
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	dev.Debug(fmt.Sprintf("allocations %T", msg))
+	dev.Debug(fmt.Sprintf("jobspec %T", msg))
 
 	var (
 		cmd  tea.Cmd
@@ -57,9 +57,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case nomadAllocationMsg:
-		m.allocationsData.allData = msg
-		m.updateAllocationViewport()
+	case nomadJobspecMessage:
+		m.jobspecData.allData = msg
+		m.updateJobspecViewport()
 		m.Loading = false
 
 	case tea.KeyMsg:
@@ -78,15 +78,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return m, nil
 
 			case key.Matches(msg, keymap.KeyMap.Reload):
-				return m, pages.ToAllocationsPageCmd
-
-			case key.Matches(msg, keymap.KeyMap.Forward):
-				if len(m.allocationsData.filteredData) > 0 {
-					selectedAlloc := m.allocationsData.filteredData[m.viewport.CursorRow]
-					m.LastSelectedAllocID = selectedAlloc.ID
-					m.LastSelectedTaskName = selectedAlloc.TaskName
-					return m, pages.ToLogsPageCmd
-				}
+				return m, pages.ToJobspecPageCmd
 
 			case key.Matches(msg, keymap.KeyMap.Back):
 				if len(m.filter.Filter) == 0 {
@@ -104,7 +96,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		prevFilter := m.filter.Filter
 		m.filter, cmd = m.filter.Update(msg)
 		if m.filter.Filter != prevFilter {
-			m.updateAllocationViewport()
+			m.updateJobspecViewport()
 		}
 		cmds = append(cmds, cmd)
 	}
@@ -113,7 +105,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	content := fmt.Sprintf("Loading allocations for %s...", m.jobID)
+	content := fmt.Sprintf("Loading job spec for %s...", m.jobID)
 	if !m.Loading {
 		content = m.viewport.View()
 	}
@@ -125,33 +117,29 @@ func (m *Model) SetWindowSize(width, height int) {
 	m.viewport.SetSize(width, height-m.filter.ViewHeight())
 }
 
+func (m *Model) clearFilter() {
+	m.filter.BlurAndClear()
+	m.updateJobspecViewport()
+}
+
 func (m *Model) SetJobID(jobID string) {
 	m.jobID = jobID
 	m.filter.SetPrefix(fmt.Sprintf("%s for %s", filterPrefix, style.Bold.Render(jobID)))
 }
 
-func (m *Model) clearFilter() {
-	m.filter.BlurAndClear()
-	m.updateAllocationViewport()
-}
-
 func (m *Model) updateFilteredAllocationData() {
-	var filteredAllocationData []allocationRowEntry
-	for _, entry := range m.allocationsData.allData {
-		if entry.MatchesFilter(m.filter.Filter) {
+	var filteredAllocationData []string
+	for _, entry := range m.jobspecData.allData {
+		if strings.Contains(entry, m.filter.Filter) {
 			filteredAllocationData = append(filteredAllocationData, entry)
 		}
 	}
-	m.allocationsData.filteredData = filteredAllocationData
+	m.jobspecData.filteredData = filteredAllocationData
 }
 
-func (m *Model) updateAllocationViewport() {
+func (m *Model) updateJobspecViewport() {
 	m.viewport.Highlight = m.filter.Filter
 	m.updateFilteredAllocationData()
-	table := allocationsAsTable(m.allocationsData.filteredData)
-	m.viewport.SetHeaderAndContent(
-		strings.Join(table.HeaderRows, "\n"),
-		strings.Join(table.ContentRows, "\n"),
-	)
+	m.viewport.SetHeaderAndContent("", strings.Join(m.jobspecData.filteredData, "\n"))
 	m.viewport.SetCursorRow(0)
 }

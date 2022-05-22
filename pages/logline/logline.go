@@ -1,8 +1,6 @@
 package logline
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,7 +25,7 @@ type Model struct {
 const filterPrefix = "Log Line"
 
 func New(logline string, width, height int) Model {
-	splitLoglines := splitLogline(logline)
+	splitLoglines := toLogLines(formatter.PrettyJsonStringAsLines(logline))
 	loglineFilter := filter.New(filterPrefix)
 	loglineViewport := viewport.New(width, height-loglineFilter.ViewHeight())
 	loglineViewport.SetCursorEnabled(false)
@@ -112,7 +110,7 @@ func (m *Model) clearFilter() {
 
 func (m *Model) SetLogline(logline string) {
 	m.logline = logline
-	m.loglineData.allData = splitLogline(logline)
+	m.loglineData.allData = toLogLines(formatter.PrettyJsonStringAsLines(logline))
 	m.updateLoglineViewport()
 }
 
@@ -136,24 +134,4 @@ func (m *Model) updateLoglineViewport() {
 	content := logsAsString(m.loglineData.filteredData)
 	m.viewport.SetHeaderAndContent("", content)
 	m.viewport.SetCursorRow(0)
-}
-
-func prettyPrint(b []byte) ([]byte, error) {
-	var out bytes.Buffer
-	err := json.Indent(&out, b, "", "  ")
-	return out.Bytes(), err
-}
-
-func splitLogline(logline string) []loglineRow {
-	pretty, err := prettyPrint([]byte(logline))
-	if err != nil {
-		return []loglineRow{loglineRow(logline)}
-	}
-
-	var splitLoglines []loglineRow
-	for _, row := range bytes.Split(pretty, []byte("\n")) {
-		splitLoglines = append(splitLoglines, loglineRow(row))
-	}
-
-	return splitLoglines
 }

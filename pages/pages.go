@@ -10,6 +10,7 @@ type Page int8
 const (
 	Unset Page = iota
 	Jobs
+	Jobspec
 	Allocations
 	Logs
 	Logline
@@ -21,6 +22,8 @@ func (p Page) String() string {
 		return "undefined"
 	case Jobs:
 		return "jobs"
+	case Jobspec:
+		return "jobspec"
 	case Allocations:
 		return "allocations"
 	case Logs:
@@ -53,6 +56,8 @@ func (p Page) Forward() Page {
 
 func (p Page) Backward() Page {
 	switch p {
+	case Jobspec:
+		return Jobs
 	case Allocations:
 		return Jobs
 	case Logs:
@@ -67,6 +72,10 @@ type ChangePageMsg struct{ NewPage Page }
 
 func ToJobsPageCmd() tea.Msg {
 	return ChangePageMsg{NewPage: Jobs}
+}
+
+func ToJobspecPageCmd() tea.Msg {
+	return ChangePageMsg{NewPage: Jobspec}
 }
 
 func ToAllocationsPageCmd() tea.Msg {

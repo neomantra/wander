@@ -22,3 +22,11 @@ func logsAsString(logs []loglineRow) string {
 	}
 	return strings.Join(logRows, "\n")
 }
+
+func toLogLines(lines []string) []loglineRow {
+	var loglines []loglineRow
+	for _, line := range lines {
+		loglines = append(loglines, loglineRow(line))
+	}
+	return loglines
+}

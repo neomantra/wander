@@ -63,8 +63,8 @@ func GetKeyMap() viewportKeyMap {
 			key.WithHelp("G", "go to bottom"),
 		),
 		Save: key.NewBinding(
-			key.WithKeys("s"),
-			key.WithHelp("s", "save"),
+			key.WithKeys("o"),
+			key.WithHelp("o", "save"),
 		),
 		CancelSave: key.NewBinding(
 			key.WithKeys("esc"),
