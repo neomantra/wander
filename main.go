@@ -81,10 +81,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// always exit if desired, or don't respond if editing filter or saving
 		if key.Matches(msg, keymap.KeyMap.Exit) {
-			addingQToFilter := m.currentPageFilterFocused()
+			focused := m.currentPageFilterFocused()
 			saving := m.currentPageViewportSaving()
-			typingQWhileFilteringOrSaving := (addingQToFilter || saving) && msg.String() == "q"
-			if !typingQWhileFilteringOrSaving {
+			typingQWhileFocusedOrSaving := (focused || saving) && msg.String() == "q"
+			if !typingQWhileFocusedOrSaving {
 				return m, tea.Quit
 			}
 		}
