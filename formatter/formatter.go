@@ -96,3 +96,12 @@ func FormatTimeNs(t int64) string {
 	tm := time.Unix(0, t).UTC()
 	return FormatTime(tm)
 }
+
+func JsonEncodedTokenArray(s string) (string, error) {
+	tokens := strings.Fields(s)
+	tokensJson, err := json.Marshal(tokens)
+	if err != nil {
+		return "", err
+	}
+	return string(tokensJson), nil
+}
