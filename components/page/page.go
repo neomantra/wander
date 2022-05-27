@@ -3,6 +3,7 @@ package page
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strings"
@@ -13,14 +14,16 @@ import (
 )
 
 type Model struct {
-	width, height int
-	pageData      data
-	viewport      viewport.Model
-	filter        filter.Model
-	loadingString string
-	loading       bool
-	isTerminal    bool
-	ViewportStyle lipgloss.Style
+	width, height     int
+	pageData          data
+	viewport          viewport.Model
+	filter            filter.Model
+	loadingString     string
+	loading           bool
+	isTerminal        bool
+	prompt            textinput.Model
+	promptInitialized bool
+	ViewportStyle     lipgloss.Style
 }
 
 func New(
@@ -29,7 +32,11 @@ func New(
 	cursorEnabled, wrapText, isTerminal bool,
 ) Model {
 	pageFilter := filter.New(filterPrefix)
-	pageViewport := viewport.New(width, height-pageFilter.ViewHeight())
+	viewportHeight := height - pageFilter.ViewHeight()
+	if isTerminal {
+		viewportHeight = 0
+	}
+	pageViewport := viewport.New(width, viewportHeight)
 	pageViewport.SetCursorEnabled(cursorEnabled)
 	pageViewport.SetWrapText(wrapText)
 	model := Model{
@@ -51,7 +58,22 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
+	if m.isTerminal {
+		if !m.promptInitialized {
+			m.prompt = textinput.New()
+			m.prompt.Focus()
+			cmds = append(cmds, textinput.Blink)
+			m.promptInitialized = true
+		}
+
+		if !m.ViewportSaving() {
+			m.prompt, cmd = m.prompt.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+	}
+
 	if m.viewport.Saving() {
+		m.prompt.Blur()
 		m.viewport, cmd = m.viewport.Update(msg)
 		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
@@ -59,6 +81,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if key.Matches(msg, keymap.KeyMap.Forward) && m.isTerminal {
+			shellCmd := m.prompt.Value()
+			m.prompt.Reset()
+			dev.Debug(shellCmd)
+			// TODO LEO: return cmd here that does the websocket async
+		}
+
 		if key.Matches(msg, keymap.KeyMap.Back) {
 			m.clearFilter()
 		}
@@ -97,8 +126,8 @@ func (m Model) View() string {
 		content = m.viewport.View()
 	}
 	blocks = append(blocks, content)
-	if m.isTerminal {
-		blocks = append(blocks, "> ")
+	if m.isTerminal && !m.loading {
+		blocks = append(blocks, m.prompt.View())
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, blocks...)
 }
@@ -138,6 +167,12 @@ func (m *Model) SetViewportXOffset(n int) {
 	m.viewport.SetXOffset(n)
 }
 
+func (m *Model) ExitTerminal() {
+	if m.isTerminal {
+		m.promptInitialized = false
+	}
+}
+
 func (m Model) Loading() bool {
 	return m.loading
 }
@@ -160,6 +195,10 @@ func (m Model) FilterApplied() bool {
 
 func (m Model) ViewportSaving() bool {
 	return m.viewport.Saving()
+}
+
+func (m Model) IsTerminal() bool {
+	return m.isTerminal
 }
 
 func (m *Model) clearFilter() {
