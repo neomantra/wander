@@ -5,6 +5,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gorilla/websocket"
 	"os"
 	"strings"
 	"wander/components/header"
@@ -20,8 +21,9 @@ import (
 )
 
 type model struct {
-	nomadUrl        string
-	nomadToken      string
+	nomadUrl   string
+	nomadToken string
+
 	header          header.Model
 	currentPage     nomad.Page
 	jobsPage        page.Model
@@ -31,16 +33,21 @@ type model struct {
 	logsPage        page.Model
 	loglinePage     page.Model
 	execPage        page.Model
-	jobID           string
-	allocID         string
-	taskName        string
-	logline         string
-	logType         nomad.LogType
-	width, height   int
-	initialized     bool
-	toastMessage    string
-	showToast       bool
-	err             error
+
+	jobID      string
+	allocID    string
+	taskName   string
+	logline    string
+	logType    nomad.LogType
+	terminalWs *websocket.Conn
+
+	width, height int
+	initialized   bool
+
+	toastMessage string
+	showToast    bool
+
+	err error
 }
 
 func initialModel() model {
@@ -210,7 +217,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logsPage.SetViewportCursorToBottom()
 		}
 		if currentPageModel.IsTerminal() {
-			currentPageModel.SetWebSocket(msg.WebSocket)
+			m.terminalWs = msg.WebSocket
 		}
 	}
 
