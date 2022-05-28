@@ -9,6 +9,7 @@ import (
 	"strings"
 	"wander/components/filter"
 	"wander/components/viewport"
+	"wander/constants"
 	"wander/dev"
 	"wander/keymap"
 )
@@ -54,7 +55,7 @@ func New(
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	dev.Debug(fmt.Sprintf("page %T", msg))
+	dev.DebugMsg("page", msg)
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -64,6 +65,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if !m.promptInitialized {
 			m.prompt = textinput.New()
 			m.prompt.Focus()
+			m.prompt.Placeholder = constants.ExecInitialPlaceholder
 			cmds = append(cmds, textinput.Blink)
 			m.promptInitialized = true
 		}
@@ -83,12 +85,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if key.Matches(msg, keymap.KeyMap.Forward) && m.isTerminal {
+		if key.Matches(msg, keymap.KeyMap.Forward) && m.isTerminal && m.prompt.Value() != "" {
+			isFirstCmd := m.prompt.Placeholder != ""
 			shellCmd := m.prompt.Value()
 			m.prompt.Reset()
-			dev.Debug(shellCmd)
-			// TODO LEO: This should send a "TerminalEnterCmd" back up to main or the like
-			// return m, message.SendExec(shellCmd, m.websocket)
+			m.prompt.Placeholder = ""
+			return m, func() tea.Msg { return TerminalEnterMsg{Cmd: shellCmd, Init: isFirstCmd} }
 		}
 
 		if key.Matches(msg, keymap.KeyMap.Back) {
@@ -103,8 +105,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		} else {
 			switch {
 			case key.Matches(msg, keymap.KeyMap.Filter):
-				m.filter.Focus()
-				return m, nil
+				if !m.isTerminal {
+					m.filter.Focus()
+					return m, nil
+				}
 			}
 
 			m.viewport, cmd = m.viewport.Update(msg)
