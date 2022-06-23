@@ -1,0 +1,63 @@
+# .goreleaser.yml file
+# https://github.com/robinovitch61/wander/
+# Documentation at http://goreleaser.com
+
+project_name: wander
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - binary: wander
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - freebsd
+      - linux
+      - windows
+
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+universal_binaries:
+  - replace: true
+
+release:
+  github:
+    owner: neomantra
+    name: wander
+
+brews:
+  - homepage: https://github.com/neomantra/wander
+    description: "a terminal app for Nomad by HashiCorp"
+    folder: Formula
+    tap:
+      owner: neomantra
+      name: homebrew-github
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaserbot@neomantra.net
+    install: |
+      bin.install "wander"
